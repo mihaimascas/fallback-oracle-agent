@@ -1,45 +1,43 @@
-import BigNumber from 'bignumber.js'
-import { 
-  BlockEvent, 
-  Finding, 
-  HandleBlock, 
-  HandleTransaction, 
-  TransactionEvent, 
-  FindingSeverity, 
-  FindingType 
+import {
+    Finding,
+    HandleTransaction,
+    TransactionEvent,
+    FindingSeverity,
+    FindingType,
+    getJsonRpcUrl
 } from 'forta-agent'
+import Web3 from 'web3';
+import { AbiItem } from 'web3-utils'
+import abiItems from './abi-items.json';
+import { GET_FALLBACK_ORACLE, LANDING_POOL_ADDRESS } from './constants';
 
-let findingsCount = 0
+
+const web3 = new Web3(getJsonRpcUrl());
 
 const handleTransaction: HandleTransaction = async (txEvent: TransactionEvent) => {
-  const findings: Finding[] = []
+    const findings: Finding[] = [];
 
-  // limiting this agent to emit only 5 findings so that the alert feed is not spammed
-  if (findingsCount >= 5) return findings;
+    const contract = new web3.eth.Contract(abiItems as AbiItem[], LANDING_POOL_ADDRESS);
+    const priceOracleAddress = await contract.methods.getPriceOracle().call();
+    const fallbackOracleCalls = txEvent.filterFunction(GET_FALLBACK_ORACLE, priceOracleAddress);
 
-  // create finding if gas used is higher than threshold
-  const gasUsed = new BigNumber(txEvent.gasUsed)
-  if (gasUsed.isGreaterThan("1000000")) {
-    findings.push(Finding.fromObject({
-      name: "High Gas Used",
-      description: `Gas Used: ${gasUsed}`,
-      alertId: "FORTA-1",
-      severity: FindingSeverity.Medium,
-      type: FindingType.Suspicious
-    }))
-    findingsCount++
-  }
+    if (fallbackOracleCalls) {
+        findings.push(Finding.fromObject({
+            name: 'GetFallbackOracle Function Call Alert',
+            description: `GetFallbackOracle() function was called. Address: ${priceOracleAddress}`,
+            alertId: 'AAVE_PO',
+            severity: FindingSeverity.Medium,
+            type: FindingType.Suspicious,
+            metadata: {
+                'txHash': txEvent.hash,
+                'priceOracleAddress': priceOracleAddress,
+            }
+        }))
+    }
 
-  return findings
+    return findings
 }
 
-// const handleBlock: HandleBlock = async (blockEvent: BlockEvent) => {
-//   const findings: Finding[] = [];
-//   // detect some block condition
-//   return findings;
-// }
-
 export default {
-  handleTransaction,
-  // handleBlock
+    handleTransaction,
 }
