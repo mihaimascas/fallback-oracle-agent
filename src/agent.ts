@@ -25,7 +25,7 @@ const handleTransaction: HandleTransaction = async (txEvent: TransactionEvent) =
         findings.push(Finding.fromObject({
             name: 'GetFallbackOracle Function Call Alert',
             description: `GetFallbackOracle() function was called. Address: ${priceOracleAddress}`,
-            alertId: 'AAVE_PO',
+            alertId: 'FORTA-AAVE_PO',
             severity: FindingSeverity.Medium,
             type: FindingType.Suspicious,
             metadata: {
